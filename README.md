@@ -1,134 +1,96 @@
 # Fya Credits API
 
-Backend API para el sistema de gestión de créditos desarrollado con Express, TypeScript y PostgreSQL.
+Backend del sistema de gestión de créditos. Express, TypeScript, PostgreSQL.
 
-## Requisitos Previos
+## Requisitos
 
-- Node.js 18+ 
-- PostgreSQL 12+
-- Redis (opcional): cola Bull para envío asíncrono de emails con reintentos. Sin Redis, los emails se envían directamente.
+- Node.js 18+
+- PostgreSQL (local o Neon/Supabase)
+- Redis (opcional): cola Bull para emails. Sin Redis, se envían directamente.
 
 ## Instalación
 
-1. Instalar dependencias:
 ```bash
 npm install
-```
-
-2. Configurar variables de entorno:
-```bash
 cp .env.example .env
 ```
 
-Editar el archivo `.env` con tus credenciales:
-```env
-# Server
-PORT=3001
-NODE_ENV=development
+Edita `.env` con tus credenciales y ejecuta:
 
-# Database (DATABASE_URL para Neon/cloud, o DB_* para local)
-DATABASE_URL=postgresql://user:password@host:5432/dbname?sslmode=require
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-JWT_EXPIRES_IN=7d
-
-# Email (SendGrid) — ver README principal para obtener API key
-SENDGRID_API_KEY=SG.your_api_key_here
-EMAIL_FROM=your-verified-email@domain.com
-EMAIL_TO=fyasocialcapital@gmail.com
-
-# Redis (cola Bull para emails; sin Redis se envían directamente)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
-
-3. Crear la base de datos (solo si usas PostgreSQL local):
-```bash
-createdb fya_credits
-```
-
-4. Ejecutar migraciones:
 ```bash
 npm run migrate
-```
-
-5. Ejecutar seeds (opcional, para datos de ejemplo):
-```bash
-npm run seed
-```
-
-**Nota:** Los seeds crean usuarios de ejemplo y créditos. Las credenciales de los usuarios son:
-- Email: `admin@fyacredits.com`, `comercial1@fyacredits.com`, etc.
-- Password: `password123` (para todos los usuarios de ejemplo)
-
-## Ejecutar el proyecto
-
-### Desarrollo
-```bash
+npm run seed   # Opcional: usuarios y créditos de ejemplo
 npm run dev
 ```
 
-El servidor estará disponible en `http://localhost:3001`
+API en `http://localhost:3001`
 
-### Producción
-```bash
-npm run build
-npm start
+## Variables de Entorno
+
+| Variable | Descripción | Dónde obtenerla |
+|----------|-------------|-----------------|
+| `PORT` | Puerto (default: 3001) | — |
+| `NODE_ENV` | `development` o `production` | — |
+| `DATABASE_URL` | URL PostgreSQL | Neon, Supabase, o `postgresql://user:pass@localhost:5432/fya_credits` |
+| `JWT_SECRET` | Clave para tokens JWT | String aleatorio seguro |
+| `JWT_EXPIRES_IN` | Expiración (ej: `7d`) | — |
+| `SENDGRID_API_KEY` | API Key SendGrid | [SendGrid → API Keys](https://app.sendgrid.com/settings/api_keys) |
+| `EMAIL_FROM` | Remitente (debe estar verificado) | [SendGrid → Sender Auth](https://app.sendgrid.com/settings/sender_auth) |
+| `EMAIL_TO` | Destino de notificaciones | Ej: `fyasocialcapital@gmail.com` |
+| `REDIS_HOST` | Host Redis (default: localhost) | — |
+| `REDIS_PORT` | Puerto Redis (default: 6379) | — |
+
+### SendGrid
+
+1. Cuenta en [sendgrid.com](https://sendgrid.com)
+2. [API Keys](https://app.sendgrid.com/settings/api_keys) → Create → permisos Mail Send
+3. [Sender Authentication](https://app.sendgrid.com/settings/sender_auth) → verificar el email de `EMAIL_FROM`
+
+### Redis
+
+Bull usa Redis para la cola de emails (reintentos, persistencia). Sin Redis, los emails se envían con `setImmediate` (sin cola).
+
+## Scripts
+
+| Comando | Descripción |
+|---------|-------------|
+| `npm run dev` | Desarrollo (tsx watch) |
+| `npm run build` | Compilar |
+| `npm start` | Producción |
+| `npm run migrate` | Ejecutar migraciones |
+| `npm run migrate:rollback` | Revertir última migración |
+| `npm run seed` | Cargar datos de ejemplo |
+
+## Estructura
+
 ```
-
-## Estructura del Proyecto
-
-```
-fya-credits-api/
-├── src/
-│   ├── config/          # Configuración (DB, env)
-│   ├── middleware/      # Middlewares (auth, validation, error handling)
-│   ├── modules/         # Módulos de la aplicación
-│   │   ├── auth/       # Autenticación
-│   │   └── credits/    # Gestión de créditos
-│   ├── jobs/           # Trabajos en segundo plano (emails)
-│   ├── utils/          # Utilidades (mailer)
-│   ├── app.ts          # Configuración de Express
-│   └── server.ts       # Entry point
-├── migrations/         # Migraciones de base de datos
-├── seeds/             # Datos semilla
-└── knexfile.ts        # Configuración de Knex
+src/
+├── config/       # DB, env
+├── middleware/   # auth, validation, errors
+├── modules/
+│   ├── auth/    # login, register
+│   └── credits/ # CRUD créditos
+├── jobs/        # Cola de emails (Bull)
+├── utils/       # mailer (SendGrid)
+├── app.ts
+└── server.ts
 ```
 
 ## API Endpoints
 
-### Autenticación
+### Auth
+- `POST /api/auth/register` — Registro
+- `POST /api/auth/login` — Login (retorna JWT)
 
-- `POST /api/auth/register` - Registro de usuario
-- `POST /api/auth/login` - Inicio de sesión
+### Créditos (requieren `Authorization: Bearer <token>`)
+- `POST /api/credits` — Crear crédito
+- `GET /api/credits` — Listar con filtros
 
-### Créditos
+**Query params GET /api/credits:** `client_name`, `client_document`, `commercial_name`, `sort_by`, `sort_order`, `page`, `limit`
 
-- `POST /api/credits` - Registrar nuevo crédito (requiere autenticación)
-- `GET /api/credits` - Listar créditos con filtros (requiere autenticación)
+## Base de Datos
 
-**Query params para GET /api/credits:**
-- `client_name` - Filtro por nombre del cliente
-- `client_document` - Filtro por cédula/ID
-- `commercial_name` - Filtro por comercial
-- `sort_by` - Ordenar por: `created_at` o `credit_amount`
-- `sort_order` - Orden: `asc` o `desc`
-- `page` - Número de página (default: 1)
-- `limit` - Resultados por página (default: 10)
+**users:** id, name, email, password, role, document, created_at, updated_at  
+**credits:** id, client_id, credit_amount, interest_rate, term_months, registered_by, created_at, updated_at
 
-## Características
-
-- ✅ Autenticación JWT
-- ✅ Validación de datos con Zod
-- ✅ Envío de correos asíncrono con Bull
-- ✅ Rate limiting
-- ✅ Manejo de errores centralizado
-- ✅ Migraciones y seeds con Knex
-- ✅ TypeScript para type safety
-
-## Notas sobre Email y Redis
-
-**SendGrid**: El sistema usa SendGrid para enviar correos. Ver el README principal para obtener la API key y verificar el remitente.
-
-**Redis**: Bull usa Redis como cola para enviar emails en segundo plano (reintentos automáticos, persistencia). Si Redis no está disponible, los emails se envían de inmediato con `setImmediate` (sin cola ni reintentos).
+Seeds: `admin@fyacredits.com`, `comercial1@fyacredits.com`, etc. — Password: `password123`
