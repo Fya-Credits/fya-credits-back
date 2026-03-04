@@ -93,4 +93,15 @@ src/
 **users:** id, name, email, password, role, document, created_at, updated_at  
 **credits:** id, client_id, credit_amount, interest_rate, term_months, registered_by, created_at, updated_at
 
-Seeds: `admin@fyacredits.com`, `comercial1@fyacredits.com`, etc. — Password: `password123`
+### Usuarios de prueba (tras `npm run seed`)
+
+| Rol | Email |
+|-----|-------|
+| Admin | `admin@fyacredits.com` |
+| Comercial | `comercial1@fyacredits.com` |
+| Comercial | `comercial2@fyacredits.com` |
+| Comercial | `comercial3@fyacredits.com` |
+| Cliente | `pepito@example.com` |
+| Cliente | `maria@example.com` |
+
+**Contraseña para todos:** `password123`
